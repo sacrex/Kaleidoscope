@@ -21,6 +21,7 @@ static double Number;
 static int gettok()
 {
 	static int LastChar = ' ';
+
 	while (isspace(LastChar)) {
 		LastChar = getchar();
 	}
