@@ -1,12 +1,13 @@
-#include<stdio.h>
-#include<stdlib.h>
+//
+// Lexer
+//
 
-#include <string>
-
+// The lexer return tokens [0-255] if it is an unknower character,
+// otherwise one of these for known things.
 enum Token{
 	tok_eof = -1,
 
-	//keywords
+	//commands
 	tok_def = -2,
 	tok_extern = -3,
 
@@ -15,13 +16,15 @@ enum Token{
 	tok_number = -5
 };
 
-static string IdentifierStr;
+static std::string IdentifierStr;
 static double Number;
 
+// gettok - Return the next token from standard input.
 static int gettok()
 {
 	static int LastChar = ' ';
-
+	
+	//Skip any whitespace
 	while (isspace(LastChar)) {
 		LastChar = getchar();
 	}
@@ -37,7 +40,7 @@ static int gettok()
 		if (IdentifierStr == "def") {
 			return tok_def;
 		}
-		if (Identifier == "extern") {
+		if (IdentifierStr == "extern") {
 			return tok_extern;
 
 		}
@@ -45,7 +48,7 @@ static int gettok()
 	}
 
 	//number [0-9.]+
-	if (isnum(LastChar) || LastChar == '.') {
+	if (isdigit(LastChar) || LastChar == '.') {
 		std::string numStr;
 		numStr = LastChar;
 		while (isdigit(LastChar = getchar()) || LastChar == '.') {
@@ -56,7 +59,7 @@ static int gettok()
 		return tok_number;
 	}
 
-	//comment #
+	//comment until end of line.
 	if (LastChar == '#') {
 		do {
 			LastChar = getchar();
@@ -67,12 +70,12 @@ static int gettok()
 		}
 	}
 
-	//EOF
+	// Check for end of file. Don't eat the EOF.
 	if (LastChar == EOF) {
 		return tok_eof;
 	}
 
-	//otherwise, we return the ascii
+	//otherwise, just return the character as its ascii value.
 	int ThisToken = LastChar;
 	LastChar = getchar();
 	return ThisToken;
