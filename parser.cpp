@@ -1,4 +1,6 @@
-
+//
+// Parser
+//
 
 // CurTok/getNextToken - Provide a simple token buffer. CurTok is the
 // current token the parser is looking at. getNextToken reads another
@@ -72,7 +74,7 @@ static std::unique_ptr<ExprAST> ParseParenExpr()
 
 // identifierexpr 
 // 			::= identifer                          --- (1)
-// 			::= identifer '(' expression ')'	   --- (2)
+// 			::= identifer '(' expression* ')'	   --- (2)
 static std::unique_ptr<ExprAST> ParseIdentifierExpr()
 {
 	std::string IdName = IdentifierStr;
@@ -181,3 +183,158 @@ static std::unique_ptr<ExprAST> ParseBinOpRHS(int ExprPrec,
 }
 
 
+// expression
+// 		::= primary binoprhs
+static std::unique_ptr<ExprAST> ParseExpression()
+{
+	auto LHS = ParsePrimary();
+	if (!LHS) {
+		return nullptr;
+	}
+	
+	return ParseBinOpRHS(0, std::move(LHS));
+}
+
+// prototype
+// 		::= id '(' id* ')'
+// there are not comma in prototype argument list
+static std::unique_ptr<PrototypeAST> ParsePrototype()
+{
+	if (CurTok != tok_identifier) {
+		return LogErrorP("Expected function name in prototype");
+	}
+
+	std::string FnName = IdentifierStr;
+	getNextToken();
+
+	if (CurTok != '(') {
+		return LogErrorP("Expected '(' in prototype");
+	}
+
+	std::vector<std::string> ArgNames;
+	while(getNextToken() == tok_identifier) {
+		ArgNames.push_back(IdentifierStr);
+	}
+
+	if (CurTok != ')') {
+		return LogErrorP("Expected ')' in prototype");
+	}
+
+	getNextToken(); // eat ).
+
+	return std::make_unique<PrototypeAST>(FnName, std::move(ArgNames));
+}
+
+// definition ::= 'def' prototype expression
+static std::unique_ptr<FunctionAST> ParseDefinition()
+{
+	getNextToken(); //eat def
+
+	auto Proto = ParsePrototype();
+	if (!Proto) {
+		return nullptr;
+	}
+
+	if (auto E = ParseExpression()) {
+		return std::make_unique<FunctionAST>(std::move(Proto), 
+											std::move(E));
+	}
+	return nullptr;
+}
+
+// toplevelexpr ::= expression
+static std::unique_ptr<FunctionAST> ParseTopLevelExpr() {
+	if (auto E = ParseExpression()) {
+		auto Proto = std::make_unique<PrototypeAST>("__anno_expr", 
+						std::vector<std::string>());
+		return std::make_unique<FunctionAST>(std::move(Proto),
+						std::move(E));
+	}
+	return nullptr;
+}
+
+// external ::= 'extern' prototype
+static std::unique_ptr<PrototypeAST> ParseExtern()
+{
+	getNextToken(); // eat extern
+	return ParsePrototype();
+}
+
+//
+// Top-Level parsing
+//
+
+static void HandleDefinition()
+{
+	if (ParseDefinition()) {
+		fprintf(stderr, "Parsed a function definition\n");
+	} else {
+		// Skip token for error recovery
+		getNextToken();
+	}
+}
+
+static void HandleExtern()
+{
+	if (ParseExtern()) {
+		fprintf(stderr, "Parsed an extern\n");
+	} else {
+		// Skip token for error recovery
+		getNextToken();
+	}
+}
+
+static void HandleTopLevelExpression()
+{
+	// Evaluate a top-level expression into an anonymous function.
+	if (ParseTopLevelExpr()) {
+		fprintf(stderr, "Parsed a top-level expr\n");
+	} else {
+		// Skip token for error recovery
+		getNextToken();
+	}
+}
+
+// top ::= definition | external | expression | ';'
+static void MainLoop()
+{
+	while (true) {
+		fprintf(stderr, "ready> ");
+		switch (CurTok) {
+			case tok_eof:
+				return;
+			case ';':
+				getNextToken();
+				break;
+			case tok_def:
+				HandleDefinition();
+				break;
+			case tok_extern:
+				HandleExtern();
+				break;
+			default:
+				HandleTopLevelExpression();
+				break;
+		}
+	}
+}
+
+//
+// Main Driver code
+//
+int main() 
+{
+	BinopPrecedence['<'] = 10;
+	BinopPrecedence['+'] = 20;
+	BinopPrecedence['-'] = 20;
+	BinopPrecedence['*'] = 40;
+
+	fprintf(stderr, "ready> ");
+
+	getNextToken(); //get the first token
+
+	// Run the main "interpreter loop" now.
+	MainLoop();
+
+	return 0;
+}
