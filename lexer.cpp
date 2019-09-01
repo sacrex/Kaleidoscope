@@ -1,3 +1,5 @@
+using namespace llvm;
+
 //
 // Lexer
 //
