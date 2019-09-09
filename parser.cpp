@@ -51,7 +51,7 @@ static std::unique_ptr<ExprAST> ParseExpression();
 // numberexpr ::= number
 static std::unique_ptr<ExprAST> ParseNumberExpr()
 {
-	auto Result = std::make_unique<NumberExprAST>(Number);
+	auto Result = llvm::make_unique<NumberExprAST>(Number);
 	getNextToken(); //eat the number, update CurTok
 	return std::move(Result);
 }
@@ -81,7 +81,7 @@ static std::unique_ptr<ExprAST> ParseIdentifierExpr()
 	getNextToken(); // eat identifier
 
 	if (CurTok != '(') {  // (1)
-		return std::make_unique<VariableExprAST>(IdName);
+		return llvm::make_unique<VariableExprAST>(IdName);
 	}
 
 	//(2)
@@ -108,7 +108,7 @@ static std::unique_ptr<ExprAST> ParseIdentifierExpr()
 	
 	getNextToken(); // eat ). update CurTok to next token
 	
-	return std::make_unique<CallExprAST>(IdName, std::move(Args));
+	return llvm::make_unique<CallExprAST>(IdName, std::move(Args));
 }
 
 // primary
@@ -177,7 +177,7 @@ static std::unique_ptr<ExprAST> ParseBinOpRHS(int ExprPrec,
 		}
 
 		// Merge LHS/RHS.
-		LHS = std::make_unique<BinaryExprAST>(BinOp, std::move(LHS),
+		LHS = llvm::make_unique<BinaryExprAST>(BinOp, std::move(LHS),
 												std::move(RHS));
 	}
 }
@@ -222,7 +222,7 @@ static std::unique_ptr<PrototypeAST> ParsePrototype()
 
 	getNextToken(); // eat ).
 
-	return std::make_unique<PrototypeAST>(FnName, std::move(ArgNames));
+	return llvm::make_unique<PrototypeAST>(FnName, std::move(ArgNames));
 }
 
 // definition ::= 'def' prototype expression
@@ -236,7 +236,7 @@ static std::unique_ptr<FunctionAST> ParseDefinition()
 	}
 
 	if (auto E = ParseExpression()) {
-		return std::make_unique<FunctionAST>(std::move(Proto), 
+		return llvm::make_unique<FunctionAST>(std::move(Proto), 
 											std::move(E));
 	}
 	return nullptr;
@@ -245,9 +245,9 @@ static std::unique_ptr<FunctionAST> ParseDefinition()
 // toplevelexpr ::= expression
 static std::unique_ptr<FunctionAST> ParseTopLevelExpr() {
 	if (auto E = ParseExpression()) {
-		auto Proto = std::make_unique<PrototypeAST>("__anno_expr", 
+		auto Proto = llvm::make_unique<PrototypeAST>("__anno_expr", 
 						std::vector<std::string>());
-		return std::make_unique<FunctionAST>(std::move(Proto),
+		return llvm::make_unique<FunctionAST>(std::move(Proto),
 						std::move(E));
 	}
 	return nullptr;
@@ -260,81 +260,3 @@ static std::unique_ptr<PrototypeAST> ParseExtern()
 	return ParsePrototype();
 }
 
-//
-// Top-Level parsing
-//
-
-static void HandleDefinition()
-{
-	if (ParseDefinition()) {
-		fprintf(stderr, "Parsed a function definition\n");
-	} else {
-		// Skip token for error recovery
-		getNextToken();
-	}
-}
-
-static void HandleExtern()
-{
-	if (ParseExtern()) {
-		fprintf(stderr, "Parsed an extern\n");
-	} else {
-		// Skip token for error recovery
-		getNextToken();
-	}
-}
-
-static void HandleTopLevelExpression()
-{
-	// Evaluate a top-level expression into an anonymous function.
-	if (ParseTopLevelExpr()) {
-		fprintf(stderr, "Parsed a top-level expr\n");
-	} else {
-		// Skip token for error recovery
-		getNextToken();
-	}
-}
-
-// top ::= definition | external | expression | ';'
-static void MainLoop()
-{
-	while (true) {
-		fprintf(stderr, "ready> ");
-		switch (CurTok) {
-			case tok_eof:
-				return;
-			case ';':
-				getNextToken();
-				break;
-			case tok_def:
-				HandleDefinition();
-				break;
-			case tok_extern:
-				HandleExtern();
-				break;
-			default:
-				HandleTopLevelExpression();
-				break;
-		}
-	}
-}
-
-//
-// Main Driver code
-//
-int main() 
-{
-	BinopPrecedence['<'] = 10;
-	BinopPrecedence['+'] = 20;
-	BinopPrecedence['-'] = 20;
-	BinopPrecedence['*'] = 40;
-
-	fprintf(stderr, "ready> ");
-
-	getNextToken(); //get the first token
-
-	// Run the main "interpreter loop" now.
-	MainLoop();
-
-	return 0;
-}
