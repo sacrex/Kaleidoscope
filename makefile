@@ -1,9 +1,9 @@
 EXE=toy
-LLVM_CONFIG=--cxxflags --ldflags --system-libs --libs core
+LLVM_CONFIG=--cxxflags --ldflags --system-libs --libs core mcjit orcjit native
 all: toy.cpp
-	clang++ -g -O3 toy.cpp `llvm-config-3.8 ${LLVM_CONFIG}` -std=c++14 -o ${EXE}
+	llvm-config --version
+	clang++ -O1 -rdynamic toy.cpp `llvm-config ${LLVM_CONFIG}` -o ${EXE}
 
 clean:
 	@rm -rf *.o ${EXE}
-
 

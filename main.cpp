@@ -3,6 +3,10 @@
 //
 int main() 
 {
+	InitializeNativeTarget();
+	InitializeNativeTargetAsmPrinter();
+	InitializeNativeTargetAsmParser();
+		
 	// Install standard binary operators.
 	// 1 is lowest precedence.
 	BinopPrecedence['<'] = 10;
@@ -14,15 +18,12 @@ int main()
 
 	getNextToken(); //get the first token
 
-	// Make the module, which holds all the code.
-	TheModule = std::make_unique<Module>("my cool jit", 
-							getGlobalContext());
+	TheJIT = llvm::make_unique<KaleidoscopeJIT>();
+
+	InitializeModuleAndPassManager();
 
 	// Run the main "interpreter loop" now.
 	MainLoop();
 	
-	// Print out all of the generated code.
-	TheModule->dump();
-
 	return 0;
 }

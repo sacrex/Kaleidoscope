@@ -1,20 +1,37 @@
 //
 // Code Generation
 //
-
+static LLVMContext TheContext;
 static std::unique_ptr<Module> TheModule;
-static IRBuilder<> Builder(getGlobalContext());
+static IRBuilder<> Builder(TheContext);
 static std::map<std::string, Value *> NamedValues;
+static std::unique_ptr<legacy::FunctionPassManager> TheFPM;
+static std::unique_ptr<KaleidoscopeJIT> TheJIT;
+static std::map<std::string, std::unique_ptr<PrototypeAST>> FunctionProtos;
 
-Value *ErrorV(const char *Str)
+Value *LogErrorV(const char *Str)
 {
 	LogError(Str);
 	return nullptr;
 }
 
+Function *getFunction(std::string Name)
+{
+	if (auto *F = TheModule->getFunction(Name)) {
+		return F;
+	}
+
+	auto FI = FunctionProtos.find(Name);
+	if (FI != FunctionProtos.end()) {
+		return FI->second->codegen();
+	}
+
+	return nullptr;
+}
+
 Value *NumberExprAST::codegen()
 {
-	return ConstantFP::get(getGlobalContext(), APFloat(Val));
+	return ConstantFP::get(TheContext, APFloat(Val));
 }
 
 Value *VariableExprAST::codegen()
@@ -23,7 +40,7 @@ Value *VariableExprAST::codegen()
 	//Look this variable up in the function.
 	Value *V = NamedValues[Name];
 	if (!V) {
-		return ErrorV("UnKnown variable name");
+		return LogErrorV("UnKnown variable name");
 	}
 	return V;
 }
@@ -48,24 +65,24 @@ Value *BinaryExprAST::codegen()
 			L = Builder.CreateFCmpULT(L, R, "cmptmp");
 			
 			//Convert bool 0/1 to double 0.0/1.0
-			return Builder.CreateUIToFP(L, Type::getDoubleTy(getGlobalContext()), 
+			return Builder.CreateUIToFP(L, Type::getDoubleTy(TheContext), 
 									"booltmp");
 		default:
-			return ErrorV("invalid binary operator");
+			return LogErrorV("invalid binary operator");
 	}
 }
 
 Value *CallExprAST::codegen()
 {
 	// Look up the name in the global module table.
-	Function *CalleeF = TheModule->getFunction(Callee);
+	Function *CalleeF = getFunction(Callee);
 	if (!CalleeF) {
-		return ErrorV("Unknown function referenced");
+		return LogErrorV("Unknown function referenced");
 	}
 
 	// If argument mismatch error.
 	if (CalleeF->arg_size() != Args.size()) {
-		return ErrorV("Incorrect # arguments passed");
+		return LogErrorV("Incorrect # arguments passed");
 	}
 
 	std::vector<Value *> ArgsV;
@@ -84,9 +101,9 @@ Function *PrototypeAST::codegen()
 {
 	// Make the function type: double(double, double) etc.
 	std::vector<Type *> Doubles(Args.size(), 
-						Type::getDoubleTy(getGlobalContext()));
+						Type::getDoubleTy(TheContext));
 	
-	FunctionType *FT = FunctionType::get(Type::getDoubleTy(getGlobalContext()), 
+	FunctionType *FT = FunctionType::get(Type::getDoubleTy(TheContext), 
 								Doubles, false);
 	Function *F = Function::Create(FT, Function::ExternalLinkage, 
 					Name, TheModule.get());
@@ -103,18 +120,16 @@ Function *PrototypeAST::codegen()
 
 Function *FunctionAST::codegen()
 {
-	Function *TheFunction = TheModule->getFunction(Proto->getName());
-
-	if (!TheFunction) {
-		TheFunction = Proto->codegen();
-	}
+	auto &P = *Proto;
+	FunctionProtos[Proto->getName()] = std::move(Proto);
+	Function *TheFunction = getFunction(P.getName());
 
 	if (!TheFunction) {
 		return nullptr;
 	}
 	
 	// Create a new basic block to start insertion into
-	BasicBlock *BB = BasicBlock::Create(getGlobalContext(), "entry", 
+	BasicBlock *BB = BasicBlock::Create(TheContext, "entry", 
 									TheFunction);
 	Builder.SetInsertPoint(BB);
 
@@ -130,6 +145,8 @@ Function *FunctionAST::codegen()
 		// Validate the generated code, checking for consistency.
 		verifyFunction(*TheFunction);
 		
+		TheFPM->run(*TheFunction);
+
 		return TheFunction;
 	}
 
