@@ -42,4 +42,6 @@ using namespace llvm::orc;
 
 #include "top_level_jit_driver.cpp"
 
+#include "library_funcs.cpp"
+
 #include "main.cpp"
