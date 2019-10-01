@@ -121,7 +121,7 @@ Value *IfExprAST::codegen()
 	// Create blocks for the then and else cases. 
 	// Insert the 'then' block at the end of the function.
 	BasicBlock *ThenBB = BasicBlock::Create(TheContext, "then", TheFunction);
-	BasicBlock *ElseB = BasicBlock::Create(TheContext, "else");
+	BasicBlock *ElseBB = BasicBlock::Create(TheContext, "else");
 	BasicBlock *MergeBB = BasicBlock::Create(TheContext, "ifcont");
 
 	Builder.CreateCondBr(CondV, ThenBB, ElseBB);
@@ -254,7 +254,7 @@ Value *ForExprAST::codegen()
 	Builder.SetInsertPoint(AfterBB);
 
 	// Add a new entry to the PHI node for the backedge.
-	Vaiable->addIncoming(NextVar, LoopEndBB);
+	Variable->addIncoming(NextVar, LoopEndBB);
 
 	// Restore the unshadowed variable.	
 	if (OldVal) {

@@ -115,7 +115,8 @@ static std::unique_ptr<ExprAST> ParseIdentifierExpr()
 static std::unique_ptr<ExprAST> ParseIfExpr()
 {
 	getNextToken(); //eat the if.
-
+	
+	// condition.
 	auto Cond = ParseExpression();
 	if (!Cond) {
 		return nullptr;
@@ -141,7 +142,7 @@ static std::unique_ptr<ExprAST> ParseIfExpr()
 		return nullptr;
 	}
 	
-	return std::make_unique<IfExprAST>(std::move(Cond), std::move(Then),
+	return llvm::make_unique<IfExprAST>(std::move(Cond), std::move(Then),
 									std::move(Else));
 }
 
@@ -180,7 +181,7 @@ static std::unique_ptr<ExprAST> ParseForExpr()
 	std::unique_ptr<ExprAST> Step;
 	if (CurTok == ',') {
 		getNextToken(); //eat ','
-		Step = ParseExpressin();
+		Step = ParseExpression();
 		if (!Step) {
 			return nullptr;
 		}
@@ -196,7 +197,7 @@ static std::unique_ptr<ExprAST> ParseForExpr()
 		return nullptr;
 	}
 
-	return std::make_unique<ForExprAST>(IdName, std::move(Start),
+	return llvm::make_unique<ForExprAST>(IdName, std::move(Start),
 					std::move(End), std::move(Step), std::move(Body));
 }
 
@@ -204,6 +205,8 @@ static std::unique_ptr<ExprAST> ParseForExpr()
 // 		::= identifierexpr
 // 		::= numberexpr
 // 		::= parenexpr
+// 		::= ifexpr
+// 		::= forexpr
 static std::unique_ptr<ExprAST> ParsePrimary()
 {
 	switch (CurTok) {
