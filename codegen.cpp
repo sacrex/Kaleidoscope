@@ -164,8 +164,9 @@ Value *IfExprAST::codegen()
 	return PN;
 }
 
+// 原版的for语义
 // Output for-loop as:
-// 
+//	loopheader: 
 // 		...
 // 		start = startexpr
 // 		goto loop
@@ -178,9 +179,10 @@ Value *IfExprAST::codegen()
 //		step = stepexpr
 //		nextvariable = variable + step
 //		endcond = endexpr
-//		br encond, loop, endloop
+//		br endcond, loop, outloop
 //	outloop:
 //
+/*
 Value *ForExprAST::codegen()
 {
 	// Emit the start code first, without 'variable' in scope
@@ -266,7 +268,130 @@ Value *ForExprAST::codegen()
 	// for expr always returns 0.0.	
 	return ConstantFP::getNullValue(Type::getDoubleTy(TheContext));
 }
+*/
 
+// 修改后的for表达式的语义(和Ｃ语言一样)
+// Output for-loop as:
+// 	entry:
+// 		start = startexpr
+// 		goto loopend
+//	loopend:
+//		variable = phi [start, entry], [nextvariable, loop]
+//		...
+//		endcond = endexpr
+//		...
+//		br endcond, loop, afterloop
+//	loop:
+//		...
+//		body = bodyexpr
+//		step = stepexpr
+//		nextvariable = variable + step
+//		br loopend
+//	afterloop:
+//
+Value *ForExprAST::codegen()
+{
+	// Emit the start code first, without 'variable' in scope
+	Value *StartVal = Start->codegen();
+	if (!StartVal) {
+		return nullptr;
+	}
+
+	// Make the new basic block for the loop end,
+	// inserting after current block.
+	Function *TheFunction = Builder.GetInsertBlock()->getParent();
+	BasicBlock *EntryBB = Builder.GetInsertBlock();
+	BasicBlock *LoopEndBB = BasicBlock::Create(TheContext, "loopend", TheFunction);
+
+	// Insert an explicit fall through from the current block to the LoopEndBB.
+	Builder.CreateBr(LoopEndBB);
+
+	// Start insertion in LoopEndBB.
+	Builder.SetInsertPoint(LoopEndBB);
+
+	// Start the PHI node with an entry for Start.
+	PHINode *Variable = Builder.CreatePHI(Type::getDoubleTy(TheContext), 2, 
+						VarName);
+	Variable->addIncoming(StartVal, EntryBB);
+	
+	// Within the loop, the variable is defined equal to the PHI node.
+	// If it shadows an existing variable, we have to restore it, so save it now.
+	Value *OldVal = NamedValues[VarName];
+	NamedValues[VarName] = Variable;
+
+	// Compute the end condition.
+	Value *EndCond = End->codegen();
+	if (!EndCond) {
+		return nullptr;
+	}
+	
+	// Convert condition to a bool by comparing non-equal to 0.0.	
+	EndCond = Builder.CreateFCmpONE(EndCond,
+					ConstantFP::get(TheContext, APFloat(0.0)), "loopcond");
+	
+	// Create the 'loop' block
+	BasicBlock *LoopBB = BasicBlock::Create(TheContext, 
+					"loop");
+
+	// Create the 'afterloop' block	
+	BasicBlock *AfterBB = BasicBlock::Create(TheContext,
+					"afterloop");
+	
+	// Insert the conditional branch into the end of LoopEndBB.	
+	Builder.CreateCondBr(EndCond, LoopBB, AfterBB);
+	
+	// add LoopBB to Function and set insert point at LoopBB.
+	TheFunction->getBasicBlockList().push_back(LoopBB);
+	Builder.SetInsertPoint(LoopBB);
+
+	// Emit the body of the loop. This, like any other expr, can change the
+	// current BB. Note that we ignore the value computed by the body, but
+	// don't allow an error.
+	if (!Body->codegen()) {
+		return nullptr;
+	}
+	
+	// Emit the step value.
+	Value *StepVal = nullptr;
+	if (Step) {
+		StepVal = Step->codegen();
+		if (!StepVal) {
+			return nullptr;
+		}
+	} else {
+		// If not specified, use 1.0
+		StepVal = ConstantFP::get(TheContext, APFloat(1.0));
+	}
+	
+	Value *NextVar = Builder.CreateFAdd(Variable, StepVal, "nextvar");
+
+	Builder.CreateBr(LoopEndBB);
+	
+	// 重新赋值LoopBB，获取更新后的值(e.g. 在二重循环中, 更新后LoopBB
+	// 会指向内循环中的AfterBB这个基本快(因为上述的Body->codegen()返回之后，设
+	// 置了AfterBB为插入点, 导致我们需要更新LoopBB指针指向AfterBB(内循环), 
+	// 此时LoopBB指向的快中就有NextVar这个指令了))
+	//
+	// 二重循环例子
+	//	def foo(x y) for i = 1, i < x in for i = 1, i < y in putchard(97);
+	LoopBB = Builder.GetInsertBlock();
+
+	Variable->addIncoming(NextVar, LoopBB);
+
+	// Any new code will be inserted in AfterBB.
+	TheFunction->getBasicBlockList().push_back(AfterBB);
+	Builder.SetInsertPoint(AfterBB);
+
+	// Restore the unshadowed variable.	
+	if (OldVal) {
+		NamedValues[VarName] = OldVal;
+	} else {
+		NamedValues.erase(VarName);
+	}
+	
+	// for expr always returns 0.0.	
+	return ConstantFP::getNullValue(Type::getDoubleTy(TheContext));
+}
 
 Function *PrototypeAST::codegen()
 {
