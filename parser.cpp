@@ -80,11 +80,11 @@ static std::unique_ptr<ExprAST> ParseIdentifierExpr()
 	std::string IdName = IdentifierStr;
 	getNextToken(); // eat identifier
 
-	if (CurTok != '(') {  // (1)
+	if (CurTok != '(') {  // (1) variable expr
 		return llvm::make_unique<VariableExprAST>(IdName);
 	}
 
-	//(2)
+	//(2) call expr 
 	getNextToken(); // eat (
 	std::vector<std::unique_ptr<ExprAST>> Args;
 	if (CurTok != ')') {
@@ -102,7 +102,7 @@ static std::unique_ptr<ExprAST> ParseIdentifierExpr()
 			if (CurTok != ',') {
 				return LogError("Expected ')' or ',' in argument list");
 			}
-			getNextToken();
+			getNextToken(); // eat ','
 		}
 	}
 	
@@ -225,8 +225,25 @@ static std::unique_ptr<ExprAST> ParsePrimary()
 	}
 }
 
+static std::unique_ptr<ExprAST> ParseUnary()
+{
+	// If the current token is not an operator, it must be a primary expr.
+	if (!isascii(CurTok) || CurTok == '(' || CurTok == ',') {
+		return ParsePrimary();
+	}
+	
+	// If this is a unary operator, read it.	
+	int Opc = CurTok;
+	getNextToken();
+	if (auto Operand = ParseUnary()) {
+		return std::make_unique<UnaryExprAST>(Opc, std::move(Operand));
+	}
+	return nullptr;
+}
+
+
 // binoprhs
-// 		::= ('+' primary)*
+// 		::= ('+' unary)*
 // ExprPrec 可以看作一个PrePrec.
 // e.g   0     a  +  b  +  c
 // 	 	 |	      |      |
@@ -247,7 +264,7 @@ static std::unique_ptr<ExprAST> ParseBinOpRHS(int ExprPrec,
 		int TokPrec = GetTokPrecedence();
 
 		// If this is a binop that binds at least at tightly as the current
-		// binop, consume it, otherwise we are done.
+		// binop(e.g. TokPrec >= ExprPrec), consume it, otherwise we are done.
 		if (TokPrec < ExprPrec) {
 			return LHS;
 		}
@@ -256,8 +273,8 @@ static std::unique_ptr<ExprAST> ParseBinOpRHS(int ExprPrec,
 		int BinOp = CurTok;
 		getNextToken(); // eat binop
 
-		// Parse the primary expression after the binary operator.
-		auto RHS = ParsePrimary();
+		// Parse the unary expression after the binary operator.
+		auto RHS = ParseUnary();
 		if (!RHS) {
 			return nullptr;
 		}
@@ -280,10 +297,10 @@ static std::unique_ptr<ExprAST> ParseBinOpRHS(int ExprPrec,
 
 
 // expression
-// 		::= primary binoprhs
+// 		::= unary binoprhs
 static std::unique_ptr<ExprAST> ParseExpression()
 {
-	auto LHS = ParsePrimary();
+	auto LHS = ParseUnary();
 	if (!LHS) {
 		return nullptr;
 	}
@@ -293,15 +310,53 @@ static std::unique_ptr<ExprAST> ParseExpression()
 
 // prototype
 // 		::= id '(' id* ')'
+// 		::= binary LETTER number? (id, id)
+// 		::= unary LETTER (id)
 // there are not comma in prototype argument list
 static std::unique_ptr<PrototypeAST> ParsePrototype()
 {
-	if (CurTok != tok_identifier) {
-		return LogErrorP("Expected function name in prototype");
-	}
+	std::string FnName;
+	
+	unsigned Kind = 0; // 0 = identifier, 1 = unary, 2 = binary.
+	unsigned BinaryPrecedence = 30;
+	
+	switch (CurTok) {
+		default:
+			return LogErrorP("Expected function name in prototype");
+		case tok_identifier:
+			FnName = IdentifierStr;
+			Kind = 0;
+			getNextToken();
+			break;
+		case tok_unary:
+			getNextToken();
+			if (!isascii(CurTok)) {
+				return LogErrorP("Expected unary operator");
+			}
+			FnName = "unary";
+			FnName += (char)CurTok;
+			Kind = 1;
+			getNextToken();
+			break;
+		case tok_binary:
+			getNextToken();
+			if (!isascii(CurTok)) {
+				return LogErrorP("Expected binary operator");
+			}
+			FnName = "binary";
+			FnName += (char)CurTok;
+			Kind = 2;
+			getNextToken();
 
-	std::string FnName = IdentifierStr;
-	getNextToken();
+			if (CurTok == tok_number) {
+				if (Number < 1 || Number > 100) {
+					return LogErrorP("Invalid precedence: must be 1..100");
+				}
+				BinaryPrecedence = (unsigned)Number;
+				getNextToken();
+			}
+			break;
+	}
 
 	if (CurTok != '(') {
 		return LogErrorP("Expected '(' in prototype");
@@ -315,10 +370,17 @@ static std::unique_ptr<PrototypeAST> ParsePrototype()
 	if (CurTok != ')') {
 		return LogErrorP("Expected ')' in prototype");
 	}
-
+	
+	// success.	
 	getNextToken(); // eat ).
+	
+	// Verify right number of names for operator.
+	if (Kind && ArgNames.size() != Kind) {
+		return LogErrorP("Invalid number of operands for operator");
+	}
 
-	return llvm::make_unique<PrototypeAST>(FnName, std::move(ArgNames));
+	return llvm::make_unique<PrototypeAST>(FnName, std::move(ArgNames), 
+					Kind != 0, BinaryPrecedence);
 }
 
 // definition ::= 'def' prototype expression

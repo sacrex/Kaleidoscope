@@ -21,6 +21,10 @@ enum Token{
 	tok_else = -8,
 	tok_for = -9,
 	tok_in = -10
+	
+	// operators
+	tok_binary = -11,
+	tok_unary = -12
 };
 
 static std::string IdentifierStr; // Filled in if tok_identifier
@@ -66,6 +70,10 @@ static int gettok()
 		if (IdentifierStr == "in") {
 			return tok_in;
 		}
+		if (IdentifierStr == "binary")
+			return tok_binary;
+		if (IdentifierStr == "unary")
+			return tok_unary;
 		return tok_identifier;
 	}
 
