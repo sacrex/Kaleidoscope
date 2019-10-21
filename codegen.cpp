@@ -91,7 +91,7 @@ Value *BinaryExprAST::codegen()
 			return Builder.CreateUIToFP(L, Type::getDoubleTy(TheContext), 
 									"booltmp");
 		default:
-			return LogErrorV("invalid binary operator");
+			break;
 	}
 	
 	// If it wasn't a builtin binary operator, it must be a user defined

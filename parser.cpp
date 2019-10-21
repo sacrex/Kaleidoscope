@@ -236,7 +236,7 @@ static std::unique_ptr<ExprAST> ParseUnary()
 	int Opc = CurTok;
 	getNextToken();
 	if (auto Operand = ParseUnary()) {
-		return std::make_unique<UnaryExprAST>(Opc, std::move(Operand));
+		return llvm::make_unique<UnaryExprAST>(Opc, std::move(Operand));
 	}
 	return nullptr;
 }
