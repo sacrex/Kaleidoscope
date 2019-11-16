@@ -1,0 +1,14 @@
+def binary : 1 (x y) y
+extern printd(x)
+
+def Exp(x)
+	var p = 1 in (
+		for i = 1, i < x+1 in (
+			p = p * i
+		)
+	) : p
+
+
+for i = 1, i < 10 in (
+	printd(Exp(i))
+)

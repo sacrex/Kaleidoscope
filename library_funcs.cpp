@@ -1,6 +1,10 @@
 //
-// "Library" functions that cna be "extern'd from user code"
+// "Library" functions that can be "extern'd from user code"
 //
+
+// 在Ch4中我们调用这种库函数时，会出现找不到的函数地址的情况，这就需要修改
+// KaleidoscopeJTI.h中的符号查找函数，解决方法如下:
+// https://stackoverflow.com/questions/54048268/llvm-kaleidoscope-tutorial-failing-on-local-extern/56862433#56862433
 
 // putchard - putchar thar takes a doubel and return 0.
 extern "C" double putchard(double x)

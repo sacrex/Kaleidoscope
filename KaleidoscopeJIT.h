@@ -47,7 +47,13 @@ public:
       : Resolver(createLegacyLookupResolver(
             ES,
             [this](const std::string &Name) {
-              return ObjectLayer.findSymbol(Name, true);
+              auto S =  ObjectLayer.findSymbol(Name, true);
+              if (!S) {
+                if (auto Sym = RTDyldMemoryManager::getSymbolAddressInProcess(Name)) {
+                  return JITSymbol(Sym, JITSymbolFlags::Exported);
+                }
+              }
+              return S;
             },
             [](Error Err) { cantFail(std::move(Err), "lookupFlags failed"); })),
         TM(EngineBuilder().selectTarget()), DL(TM->createDataLayout()),

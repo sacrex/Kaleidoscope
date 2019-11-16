@@ -7,6 +7,7 @@
 #include "llvm-8.1/IR/DerivedTypes.h"
 #include "llvm-8.1/IR/Function.h"
 #include "llvm-8.1/IR/IRBuilder.h"
+#include "llvm-8.1/IR/Instructions.h"
 #include "llvm-8.1/IR/LLVMContext.h"
 #include "llvm-8.1/IR/LegacyPassManager.h"
 #include "llvm-8.1/IR/Module.h"
@@ -17,6 +18,7 @@
 #include "llvm-8.1/Transforms/InstCombine/InstCombine.h"
 #include "llvm-8.1/Transforms/Scalar.h"
 #include "llvm-8.1/Transforms/Scalar/GVN.h"
+#include "llvm-8.1/Transforms/Utils.h"
 
 #include <algorithm>
 #include <cassert>
@@ -27,6 +29,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 using namespace llvm;
@@ -41,5 +44,7 @@ using namespace llvm::orc;
 #include "codegen.cpp"
 
 #include "top_level_jit_driver.cpp"
+
+#include "library_funcs.cpp"
 
 #include "main.cpp"
