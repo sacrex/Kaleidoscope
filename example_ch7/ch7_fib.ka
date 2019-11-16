@@ -1,0 +1,23 @@
+def binary : 1 (x y) y
+extern putchard(x)
+extern printd(x)
+
+def fib(x)
+	var a = 1, b = 1, c in (
+		for i = 2, i < x in (
+			c = a + b :
+			a = b :
+			b = c
+		)
+	) : b
+
+def fibR(x)
+	if (x < 3) then
+		1
+	else
+		fibR(x-1) + fibR(x-2)
+
+
+for i = 1, i < 50 in (
+	printd(fib(i))
+)

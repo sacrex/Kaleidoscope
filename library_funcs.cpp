@@ -1,5 +1,5 @@
 //
-// "Library" functions that cna be "extern'd from user code"
+// "Library" functions that can be "extern'd from user code"
 //
 
 // 在Ch4中我们调用这种库函数时，会出现找不到的函数地址的情况，这就需要修改

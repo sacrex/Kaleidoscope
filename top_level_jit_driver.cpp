@@ -10,6 +10,9 @@ static void InitializeModuleAndPassManager()
 	
 	// Create a new pass manager attached to it.
 	TheFPM = llvm::make_unique<legacy::FunctionPassManager>(TheModule.get());
+	
+	// Promote allocas to registers.
+	TheFPM->add(createPromoteMemoryToRegisterPass());
 
 	// Do simple "peephole" optimizations and bit-twiddling optzns.
 	TheFPM->add(createInstructionCombiningPass());
@@ -36,7 +39,9 @@ static void HandleDefinition()
 
 			// 查找是否已经有该名字对应的函数，若存在，则从JIT中删除它
 			if (TheJIT->findSymbol(FnIR->getName())) {
-			  TheJIT->removeModule(FuncModuleMap[FnIR->getName()]);
+				if (FuncModuleMap.find(FnIR->getName()) != FuncModuleMap.end()) {
+			  		TheJIT->removeModule(FuncModuleMap[FnIR->getName()]);
+				}
 			}
 			// 由于下面的std::move(TheModule),会导致FnIR指向的内容变为空了
 			// 故这里需要保存一下函数名
@@ -107,7 +112,6 @@ static void HandleTopLevelExpression()
 static void MainLoop()
 {
 	while (true) {
-		fprintf(stderr, "ready> ");
 		switch (CurTok) {
 			case tok_eof:
 				return;
@@ -124,5 +128,6 @@ static void MainLoop()
 				HandleTopLevelExpression();
 				break;
 		}
+		fprintf(stderr, "ready> ");
 	}
 }
