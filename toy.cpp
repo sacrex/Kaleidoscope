@@ -18,6 +18,7 @@
 #include "llvm-8.1/Transforms/InstCombine/InstCombine.h"
 #include "llvm-8.1/Transforms/Scalar.h"
 #include "llvm-8.1/Transforms/Scalar/GVN.h"
+#include "llvm-8.1/Transforms/Utils.h"
 
 #include <algorithm>
 #include <cassert>
@@ -28,6 +29,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 using namespace llvm;
