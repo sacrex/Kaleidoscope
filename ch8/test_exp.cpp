@@ -11,5 +11,5 @@ int main(int argc, char *argv[])
 		exit(-1);
 
 	for (int i = 0; i < atoi(argv[1]); ++i)
-	std::cout << "exp of "<< i << ": " << Exp(i) << std::endl;
+		std::cout << "exp of "<< i << ": " << Exp(i) << std::endl;
 }
