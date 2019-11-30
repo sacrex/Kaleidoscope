@@ -1,0 +1,8 @@
+def binary : 1 (x y) y;
+
+def sum(x)
+	var p = 0 in (
+		for i = 0, i < x+1 in (
+			p = p + i	
+		)
+	) : p
