@@ -1,6 +1,6 @@
-### How To Generate Execute File From .Ka
+# How To Generate Execute File From .Ka #
 
-see generate.sh
+## see generate.sh
 
 1. ./toy fib.ka 2> fib.ll
 2. clang -x ir fib.ll -c -o fib.o
