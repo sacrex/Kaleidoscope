@@ -1,0 +1,12 @@
+extern printd(d);
+
+def binary : 1 (x y) y;
+
+def fib(x)
+	if x < 3 then
+		1
+	else
+		fib(x - 1) + fib(x - 2);
+
+for i = 1, i < 20 in
+	printd(fib(i))
